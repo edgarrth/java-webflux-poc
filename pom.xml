@@ -11,7 +11,6 @@
     <artifactId>webflux-reactor-payment-poc</artifactId>
     <version>1.0.0</version>
     <name>webflux-reactor-payment-poc</name>
-    <description>PoC Java 25 Spring WebFlux Reactor R2DBC Payment Processing</description>
     <properties>
         <java.version>25</java.version>
     </properties>
