@@ -12,12 +12,6 @@ El dominio representa un flujo simple de payment processing:
 4. Si supera 5000, el pago queda `REJECTED`.
 5. Los pagos autorizados pueden pasar a `SETTLED`.
 
-## ¿Vale la pena usar Reactor y WebFlux?
-
-Sí vale la pena cuando el servicio tiene alta concurrencia, llamadas I/O no bloqueantes, streaming, integraciones reactivas, APIs con respuesta progresiva o procesamiento por lotes donde se necesita controlar presión de datos. En esta PoC aplica porque se usa R2DBC, `Mono`, `Flux`, Server-Sent Events, procesamiento NDJSON, backpressure y composición funcional.
-
-No siempre vale la pena. Para CRUD simple, baja concurrencia, lógica fuertemente transaccional con JPA/Hibernate o equipos sin experiencia reactiva, Spring MVC suele ser más simple. WebFlux exige evitar bloqueos, entender operadores Reactor y cuidar la depuración.
-
 ## Stack técnico
 
 - Java 25
