@@ -1,0 +1,3 @@
+### Streaming demo with SSE
+GET http://localhost:8080/payments/v1/streaming-demos/orchestrations/sse
+Accept: text/event-stream

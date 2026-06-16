@@ -142,6 +142,12 @@ Se usa R2DBC en lugar de JDBC/JPA para mantener el flujo no bloqueante desde el 
 | POST | `/payments/v1/payments/{paymentId}/settlements` | Liquida un pago autorizado |
 | GET | `/payments/v1/payments/streams?merchantId=...` | Stream SSE de pagos por comercio |
 | POST | `/payments/v1/payments/batch-authorizations` | Autoriza pagos en lote con NDJSON |
+| GET | `/payments/v1/streaming-demos/orchestrations/sse` | Orquesta 4 endpoints internos y emite resultados en streaming con SSE |
+| GET | `/payments/v1/streaming-demos/orchestrations/ndjson` | Orquesta los mismos 4 endpoints internos y emite resultados en streaming con NDJSON |
+| GET | `/payments/v1/streaming-demos/backends/customer-profile` | Endpoint interno demo con respuesta simulada de 1 segundo |
+| GET | `/payments/v1/streaming-demos/backends/risk-score` | Endpoint interno demo con respuesta simulada de 2.5 segundos |
+| GET | `/payments/v1/streaming-demos/backends/fraud-validation` | Endpoint interno demo con respuesta simulada de 4 segundos |
+| GET | `/payments/v1/streaming-demos/backends/loyalty-benefits` | Endpoint interno demo con respuesta simulada de 6 segundos |
 
 ## Levantar infraestructura
 
@@ -201,6 +207,44 @@ http://localhost:8080/actuator/health
 La carpeta `infraestructura/requests` contiene archivos `.http` para IntelliJ IDEA.
 
 También puedes usar curl.
+
+
+### Demo streaming SSE vs NDJSON
+
+La PoC incluye una página HTML para probar el streaming desde el navegador:
+
+```text
+http://localhost:8080/streaming-demo.html
+```
+
+Este demo expone 4 endpoints internos con tiempos de respuesta diferentes:
+
+| Endpoint interno | Delay simulado |
+|---|---:|
+| `/payments/v1/streaming-demos/backends/customer-profile` | 1 segundo |
+| `/payments/v1/streaming-demos/backends/risk-score` | 2.5 segundos |
+| `/payments/v1/streaming-demos/backends/fraud-validation` | 4 segundos |
+| `/payments/v1/streaming-demos/backends/loyalty-benefits` | 6 segundos |
+
+El endpoint orquestador llama a esos 4 endpoints de forma concurrente usando `WebClient` y `Flux.merge(...)`. Por eso el cliente recibe cada resultado apenas está disponible, sin esperar a que finalicen los 4 endpoints.
+
+#### Orquestación con SSE
+
+```bash
+curl -N -H "Accept: text/event-stream" \
+  "http://localhost:8080/payments/v1/streaming-demos/orchestrations/sse"
+```
+
+Respuesta esperada: eventos `demo-step` que llegan aproximadamente al segundo 1, 2.5, 4 y 6. Al final se emite un evento `completed`.
+
+#### Orquestación con NDJSON
+
+```bash
+curl -N -H "Accept: application/x-ndjson" \
+  "http://localhost:8080/payments/v1/streaming-demos/orchestrations/ndjson"
+```
+
+Respuesta esperada: una línea JSON por cada respuesta parcial. Cada línea llega apenas termina uno de los endpoints internos. Al final se emite una línea con `step = completed`.
 
 ### Crear pago
 

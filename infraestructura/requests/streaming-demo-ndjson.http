@@ -1,0 +1,3 @@
+### Streaming demo with NDJSON
+GET http://localhost:8080/payments/v1/streaming-demos/orchestrations/ndjson
+Accept: application/x-ndjson

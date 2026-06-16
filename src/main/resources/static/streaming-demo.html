@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WebFlux Streaming Demo - SSE vs NDJSON</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+            background: #f6f8fa;
+            color: #1f2937;
+        }
+        h1 { margin-bottom: .25rem; }
+        .description { color: #4b5563; margin-bottom: 1.5rem; }
+        .actions { display: flex; gap: .75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+        button {
+            border: 0;
+            border-radius: .5rem;
+            padding: .75rem 1rem;
+            cursor: pointer;
+            font-weight: 700;
+            background: #2563eb;
+            color: white;
+        }
+        button.secondary { background: #475569; }
+        button.danger { background: #dc2626; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1rem;
+        }
+        .panel {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: .75rem;
+            padding: 1rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,.06);
+        }
+        .panel h2 { margin-top: 0; }
+        .event {
+            border-left: 4px solid #2563eb;
+            background: #eff6ff;
+            padding: .75rem;
+            margin: .75rem 0;
+            border-radius: .5rem;
+        }
+        .event.completed {
+            border-left-color: #16a34a;
+            background: #f0fdf4;
+        }
+        .muted { color: #6b7280; font-size: .9rem; }
+        pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin: .25rem 0 0;
+        }
+    </style>
+</head>
+<body>
+<h1>WebFlux Streaming Demo</h1>
+<p class="description">
+    Este demo orquesta 4 endpoints internos con tiempos diferentes: 1s, 2.5s, 4s y 6s.
+    SSE y NDJSON muestran cada respuesta apenas llega, sin esperar a que terminen los 4 endpoints.
+</p>
+
+<div class="actions">
+    <button onclick="startSse()">Probar SSE</button>
+    <button class="secondary" onclick="startNdjson()">Probar NDJSON</button>
+    <button class="danger" onclick="stopAll()">Detener</button>
+</div>
+
+<div class="grid">
+    <section class="panel">
+        <h2>SSE <span class="muted">text/event-stream</span></h2>
+        <div id="sseStatus" class="muted">Sin ejecutar</div>
+        <div id="sseOutput"></div>
+    </section>
+    <section class="panel">
+        <h2>NDJSON <span class="muted">application/x-ndjson</span></h2>
+        <div id="ndjsonStatus" class="muted">Sin ejecutar</div>
+        <div id="ndjsonOutput"></div>
+    </section>
+</div>
+
+<script>
+    let eventSource;
+    let ndjsonAbortController;
+
+    function clearPanel(outputId, statusId, status) {
+        document.getElementById(outputId).innerHTML = '';
+        document.getElementById(statusId).textContent = status;
+    }
+
+    function appendEvent(outputId, payload, completed = false) {
+        const div = document.createElement('div');
+        div.className = completed ? 'event completed' : 'event';
+        div.innerHTML = `
+            <strong>${payload.step}</strong>
+            <div class="muted">${payload.sourceEndpoint}</div>
+            <div>Delay configurado: ${payload.configuredDelayMs} ms</div>
+            <div>Tiempo acumulado: ${payload.elapsedMs} ms</div>
+            <pre>${JSON.stringify(payload, null, 2)}</pre>
+        `;
+        document.getElementById(outputId).appendChild(div);
+    }
+
+    function startSse() {
+        stopSse();
+        clearPanel('sseOutput', 'sseStatus', 'Conectando SSE...');
+
+        eventSource = new EventSource('/payments/v1/streaming-demos/orchestrations/sse');
+
+        eventSource.addEventListener('demo-step', event => {
+            appendEvent('sseOutput', JSON.parse(event.data));
+            document.getElementById('sseStatus').textContent = 'Recibiendo eventos...';
+        });
+
+        eventSource.addEventListener('completed', event => {
+            appendEvent('sseOutput', JSON.parse(event.data), true);
+            document.getElementById('sseStatus').textContent = 'Completado';
+            stopSse();
+        });
+
+        eventSource.onerror = () => {
+            document.getElementById('sseStatus').textContent = 'Conexión SSE cerrada o con error';
+            stopSse();
+        };
+    }
+
+    async function startNdjson() {
+        stopNdjson();
+        clearPanel('ndjsonOutput', 'ndjsonStatus', 'Conectando NDJSON...');
+
+        ndjsonAbortController = new AbortController();
+        const response = await fetch('/payments/v1/streaming-demos/orchestrations/ndjson', {
+            headers: { Accept: 'application/x-ndjson' },
+            signal: ndjsonAbortController.signal
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        document.getElementById('ndjsonStatus').textContent = 'Recibiendo líneas...';
+
+        try {
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    const payload = JSON.parse(line);
+                    appendEvent('ndjsonOutput', payload, payload.step === 'completed');
+                }
+            }
+
+            if (buffer.trim()) {
+                const payload = JSON.parse(buffer);
+                appendEvent('ndjsonOutput', payload, payload.step === 'completed');
+            }
+
+            document.getElementById('ndjsonStatus').textContent = 'Completado';
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                document.getElementById('ndjsonStatus').textContent = 'Error leyendo NDJSON: ' + error.message;
+            }
+        }
+    }
+
+    function stopSse() {
+        if (eventSource) {
+            eventSource.close();
+            eventSource = undefined;
+        }
+    }
+
+    function stopNdjson() {
+        if (ndjsonAbortController) {
+            ndjsonAbortController.abort();
+            ndjsonAbortController = undefined;
+        }
+    }
+
+    function stopAll() {
+        stopSse();
+        stopNdjson();
+        document.getElementById('sseStatus').textContent = 'Detenido';
+        document.getElementById('ndjsonStatus').textContent = 'Detenido';
+    }
+</script>
+</body>
+</html>
