@@ -1,0 +1,2 @@
+GET http://localhost:8080/payments/v1/payments/streams?merchantId=merchant-lima-001
+Accept: text/event-stream

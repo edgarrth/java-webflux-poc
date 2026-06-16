@@ -1,0 +1,2 @@
+POST http://localhost:8080/payments/v1/payments/22222222-2222-2222-2222-222222222222/settlements
+Accept: application/json

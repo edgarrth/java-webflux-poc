@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: webflux-reactor-payment-poc
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/paymentsdb
+    username: payments
+    password: payments
+    pool:
+      enabled: true
+      initial-size: 5
+      max-size: 20
+  sql:
+    init:
+      mode: never
+server:
+  port: 8080
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+payment:
+  batch:
+    max-concurrency: 4
+    backpressure-buffer-size: 100
