@@ -282,30 +282,8 @@ curl -X POST http://localhost:8080/payments/v1/payments/batch-authorizations \
   --data-binary @datasets/003_batch_authorization.ndjson
 ```
 
-## Diferencias encontradas en la PoC: Spring MVC vs WebFlux/Reactor
-
-| Aspecto | Spring MVC tradicional | WebFlux + Reactor |
-|---|---|---|
-| Modelo de ejecución | Thread por request | Event loop no bloqueante |
-| Tipos principales | Objetos directos, `List`, `ResponseEntity` | `Mono`, `Flux` |
-| BD típica | JDBC/JPA bloqueante | R2DBC no bloqueante |
-| Streaming | Posible, pero menos natural | Natural con `Flux` y SSE |
-| Batch reactivo | Normalmente se procesa como lista completa | Puede procesar como flujo con backpressure |
-| Complejidad | Menor | Mayor curva de aprendizaje |
-| Mejor caso de uso | CRUD, lógica simple, transacciones JPA | Alta concurrencia, I/O, streaming, APIs reactivas |
-
-## Decisiones de diseño DDD
+## Notas
 
 - `Payment` es el agregado principal.
 - El dominio contiene reglas como `authorize`, `reject` y `settle`.
-- Los puertos definen contratos de entrada y salida.
-- La aplicación orquesta casos de uso reactivos.
-- Los adaptadores implementan REST, persistencia R2DBC y publicación de eventos.
-- La base de datos existe porque la PoC necesita demostrar persistencia reactiva real.
 
-## Notas importantes
-
-- No usar `block()` dentro del flujo reactivo.
-- No mezclar JPA/JDBC con WebFlux si se busca un flujo no bloqueante real.
-- Para integraciones externas, usar clientes no bloqueantes como `WebClient`.
-- En producción, reemplazar `ConsolePaymentEventPublisher` por Kafka, RabbitMQ, Pub/Sub u otro broker compatible con el contexto.
