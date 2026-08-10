@@ -29,17 +29,37 @@ public final class Payment {
         return new Payment(UUID.randomUUID(), merchantId, customerId, amount, currency, PaymentStatus.RECEIVED, Instant.now());
     }
 
+    /**
+     * Rehydrates an aggregate previously persisted by an infrastructure adapter.
+     */
+    public static Payment rehydrate(UUID paymentId, String merchantId, String customerId, BigDecimal amount,
+                                    String currency, PaymentStatus status, Instant createdAt) {
+        return new Payment(paymentId, merchantId, customerId, amount, currency, status, createdAt);
+    }
+
     public Payment authorize() {
-        return new Payment(paymentId, merchantId, customerId, amount, currency, PaymentStatus.AUTHORIZED, createdAt);
+        requireStatus(PaymentStatus.RECEIVED, "Only RECEIVED payments can be authorized");
+        return withStatus(PaymentStatus.AUTHORIZED);
     }
 
     public Payment reject() {
-        return new Payment(paymentId, merchantId, customerId, amount, currency, PaymentStatus.REJECTED, createdAt);
+        requireStatus(PaymentStatus.RECEIVED, "Only RECEIVED payments can be rejected");
+        return withStatus(PaymentStatus.REJECTED);
     }
 
     public Payment settle() {
-        if (status != PaymentStatus.AUTHORIZED) throw new IllegalStateException("Only AUTHORIZED payments can be settled");
-        return new Payment(paymentId, merchantId, customerId, amount, currency, PaymentStatus.SETTLED, createdAt);
+        requireStatus(PaymentStatus.AUTHORIZED, "Only AUTHORIZED payments can be settled");
+        return withStatus(PaymentStatus.SETTLED);
+    }
+
+    private Payment withStatus(PaymentStatus newStatus) {
+        return new Payment(paymentId, merchantId, customerId, amount, currency, newStatus, createdAt);
+    }
+
+    private void requireStatus(PaymentStatus expected, String message) {
+        if (status != expected) {
+            throw new IllegalStateException(message);
+        }
     }
 
     private static String requireText(String value, String field) {

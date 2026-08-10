@@ -1,5 +1,12 @@
 # PoC Java 25 - Spring WebFlux + Reactor para Payment Processing
 
+## Nota para Spring Boot 4 y WebClient
+
+La PoC usa WebFlux tanto como servidor HTTP reactivo como cliente HTTP reactivo para los demos de streaming.
+En Spring Boot 4 se incluye explícitamente `spring-boot-starter-webclient` para habilitar la auto-configuración de `WebClient.Builder`.
+Esto evita el error de arranque `No qualifying bean of type WebClient$Builder available`.
+
+
 ## Descripción funcional
 
 Esta PoC implementa un microservicio reactivo de procesamiento de pagos. Permite crear pagos, consultar pagos, autorizar pagos, liquidar pagos autorizados, emitir un stream de pagos por comercio usando Server-Sent Events y ejecutar autorizaciones en lote usando NDJSON con control de concurrencia y backpressure.
@@ -101,7 +108,7 @@ Flux<PaymentResponse> streamByMerchant(@RequestParam String merchantId)
 
 Casos de uso:
 
-- Stream de pagos por comercio con `text/event-stream`
+- Snapshot reactivo de pagos por comercio emitido con `text/event-stream`
 - Autorización batch con `application/x-ndjson`
 
 ### Backpressure
@@ -110,9 +117,10 @@ El endpoint batch usa un `Flux` de entrada y aplica buffer limitado y concurrenc
 
 ```java
 paymentIds
-    .onBackpressureBuffer(100)
+    .onBackpressureBuffer(backpressureBufferSize)
     .distinct()
-    .flatMap(this::authorizePayment, maxConcurrency)
+    .flatMap(paymentId -> authorizePayment(paymentId)
+        .onErrorResume(error -> Mono.empty()), maxConcurrency)
 ```
 
 Esto simula una entrada con muchos pagos y evita procesar todo sin límite.
@@ -170,6 +178,8 @@ Servicios:
 
 Los scripts de `datasets/` se montan automáticamente en `/docker-entrypoint-initdb.d/` y se ejecutan cuando se crea el volumen por primera vez.
 
+> **PostgreSQL 18:** la imagen oficial cambió `PGDATA` a una ruta versionada bajo `/var/lib/postgresql`. Por eso el volumen persistente se monta en `/var/lib/postgresql` y no en `/var/lib/postgresql/data`. Si levantaste una versión anterior de esta PoC, elimina el volumen antes de volver a crear los contenedores.
+
 Para reiniciar desde cero:
 
 ```bash
@@ -177,6 +187,14 @@ cd infraestructura
 docker compose down -v
 docker compose up -d
 ```
+
+También se incluye una verificación automatizada local desde la raíz del proyecto:
+
+```bash
+./scripts/verify-local.sh
+```
+
+El script recrea PostgreSQL, ejecuta la suite Maven, inicia la aplicación y prueba el flujo crear → consultar → autorizar → liquidar.
 
 ## Levantar la aplicación
 
@@ -205,9 +223,6 @@ http://localhost:8080/actuator/health
 ## Probar requests
 
 La carpeta `infraestructura/requests` contiene archivos `.http` para IntelliJ IDEA.
-
-También puedes usar curl.
-
 
 ### Demo streaming SSE vs NDJSON
 

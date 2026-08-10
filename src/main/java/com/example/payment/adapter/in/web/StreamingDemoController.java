@@ -40,16 +40,17 @@ public class StreamingDemoController {
                         .id(response.step())
                         .data(response)
                         .build())
-                .concatWithValues(ServerSentEvent.<StreamingDemoResponse>builder()
-                        .event("completed")
-                        .data(new StreamingDemoResponse(
-                                "completed",
-                                "/payments/v1/streaming-demos/orchestrations/sse",
-                                0,
-                                Duration.between(startedAt, Instant.now()).toMillis(),
-                                "SSE orchestration finished"
-                        ))
-                        .build());
+                .concatWith(Mono.defer(() -> Mono.just(
+                        ServerSentEvent.<StreamingDemoResponse>builder()
+                                .event("completed")
+                                .data(new StreamingDemoResponse(
+                                        "completed",
+                                        "/payments/v1/streaming-demos/orchestrations/sse",
+                                        0,
+                                        Duration.between(startedAt, Instant.now()).toMillis(),
+                                        "SSE orchestration finished"
+                                ))
+                                .build())));
     }
 
     @GetMapping(value = "/orchestrations/ndjson", produces = MediaType.APPLICATION_NDJSON_VALUE)
@@ -60,13 +61,13 @@ public class StreamingDemoController {
                         callBackendEndpoint("/payments/v1/streaming-demos/backends/risk-score", startedAt),
                         callBackendEndpoint("/payments/v1/streaming-demos/backends/fraud-validation", startedAt),
                         callBackendEndpoint("/payments/v1/streaming-demos/backends/loyalty-benefits", startedAt))
-                .concatWithValues(new StreamingDemoResponse(
+                .concatWith(Mono.defer(() -> Mono.just(new StreamingDemoResponse(
                         "completed",
                         "/payments/v1/streaming-demos/orchestrations/ndjson",
                         0,
                         Duration.between(startedAt, Instant.now()).toMillis(),
                         "NDJSON orchestration finished"
-                ));
+                ))));
     }
 
     @GetMapping("/backends/customer-profile")
