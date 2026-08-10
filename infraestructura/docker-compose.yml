@@ -9,7 +9,9 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # PostgreSQL 18+ moved PGDATA to /var/lib/postgresql/<major>/docker.
+      # Mount the parent directory so upgrades can use the versioned layout.
+      - postgres_data:/var/lib/postgresql
       - ../datasets/001_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
       - ../datasets/002_seed_data.sql:/docker-entrypoint-initdb.d/002_seed_data.sql:ro
     healthcheck:
@@ -17,6 +19,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 5s
+
   pgadmin:
     image: dpage/pgadmin4:9
     container_name: webflux-payments-pgadmin
@@ -28,5 +32,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
 volumes:
   postgres_data:
