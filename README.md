@@ -31,8 +31,6 @@ El dominio representa un flujo simple de payment processing:
 - Maven
 - OpenAPI/Swagger UI
 
-Spring Boot 4.0 introdujo soporte de primera clase para Java 25 y está basado en Spring Framework 7. WebFlux usa Reactor como dependencia central y expone APIs que normalmente devuelven `Mono` o `Flux`.
-
 ## Estructura del proyecto
 
 ```text
@@ -177,24 +175,6 @@ Servicios:
 - pgAdmin password: `admin`
 
 Los scripts de `datasets/` se montan automáticamente en `/docker-entrypoint-initdb.d/` y se ejecutan cuando se crea el volumen por primera vez.
-
-> **PostgreSQL 18:** la imagen oficial cambió `PGDATA` a una ruta versionada bajo `/var/lib/postgresql`. Por eso el volumen persistente se monta en `/var/lib/postgresql` y no en `/var/lib/postgresql/data`. Si levantaste una versión anterior de esta PoC, elimina el volumen antes de volver a crear los contenedores.
-
-Para reiniciar desde cero:
-
-```bash
-cd infraestructura
-docker compose down -v
-docker compose up -d
-```
-
-También se incluye una verificación automatizada local desde la raíz del proyecto:
-
-```bash
-./scripts/verify-local.sh
-```
-
-El script recrea PostgreSQL, ejecuta la suite Maven, inicia la aplicación y prueba el flujo crear → consultar → autorizar → liquidar.
 
 ## Levantar la aplicación
 
